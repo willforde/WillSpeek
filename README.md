@@ -15,3 +15,6 @@ So I decided to create this project to interface with the windows SAPI5 TTS engi
 
 ## Version
 0.0.1
+
+## Licence
+Not sure yet
