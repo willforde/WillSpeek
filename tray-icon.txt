@@ -1,0 +1,4 @@
+Artist: Oxygen Team
+Iconset: Oxygen Icons (883 icons)
+License: GNU Lesser General Public License
+Commercial usage: Allowed
