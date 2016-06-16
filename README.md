@@ -12,3 +12,6 @@ So I decided to create this project to interface with the windows SAPI5 TTS engi
 * Setup the server to send back the wav file in a seperate socket thats dedicated to sending audio only.
 * Improve the client side code to handle reconnection to server when the connection drops.
 * Find a better way to communicate with the server.
+
+## Version
+0.0.1
