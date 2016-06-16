@@ -13,13 +13,11 @@ So I decided to create this project to interface with the windows SAPI5 TTS engi
 On Windows:
 * pyWin32
 * comtypes
+* pyaudio
 
 Linux:
 * Tkinter
-
-Both:
 * pyaudio
-
 
 # TODO
 * A lot
