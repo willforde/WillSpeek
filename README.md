@@ -22,7 +22,6 @@ Linux:
 # TODO
 * A lot
 * Setup the server to send back the wav file in a seperate socket thats dedicated to sending audio only.
-* Improve the client side code to handle reconnection to server when the connection drops.
 * Find a better way to communicate with the server.
 * Setup server to only allow one connection from same ip address
 
