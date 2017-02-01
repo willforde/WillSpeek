@@ -3,6 +3,7 @@ import asyncio
 
 # Package imports
 from src import common
+from src import tts_server
 
 
 class Server(asyncio.Protocol):
@@ -17,14 +18,18 @@ class Server(asyncio.Protocol):
         self.handler = common.ProtocolHandler(self)
         self.transport = transport
 
+    def data_received(self, data):
+        core = self.handler.stream_decode(data)
+        asyncio.ensure_future(core)
+
+    def send_data(self, data):
+        stream = self.handler.stream_encode(data)
+        self.transport.write(stream)
+
     def connection_lost(self, exc):
         print("Disconnected from {}".format(self.peername))
         self.transport = None
         self.peername = None
-
-    def data_received(self, data):
-        core = self.handler.stream_decode(data)
-        asyncio.ensure_future(core)
 
 
 def run():
@@ -35,6 +40,10 @@ def run():
     coro = loop.create_server(Server, "127.0.0.1", 8888)
     server = loop.run_until_complete(coro)
 
+    # Setup TTS command processor
+    command_processor = tts_server.TTS()
+    tts_task = asyncio.ensure_future(command_processor.start())
+
     # Serve requests until Ctrl+C is pressed
     try:
         print("Serving on {}".format(server.sockets[0].getsockname()))
@@ -43,5 +52,6 @@ def run():
         pass
     finally:
         server.close()
+        tts_task.cancel()
         loop.run_until_complete(server.wait_closed())
         loop.close()

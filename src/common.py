@@ -1,28 +1,21 @@
 # Standard library imports
 from base64 import b64encode, b64decode
+from random import random
+import collections
 import asyncio
 import json
 
 # Create Queue for all command
-commandQ = asyncio.Queue()
+requestQ = asyncio.Queue()
+responseQ = collections.defaultdict(asyncio.Queue)
 
 
-def stream_encode(data):
-    """
-    Convert a dictionary into a base64 encoded data, ready for network transfer.
-
-    :param dict data: Dictionary to convert
-    :return: Base64 encoded data
-    :rtype: bytes
-    """
-
-    # Convert raw_data to base64 if exists
-    if "raw_string" in data:
-        data["raw_string"] = b64encode(data["raw_string"].encode("utf8")).decode("ascii")
-
-    # Convert dict into a serialized string ready for network transfer
-    stream = json.dumps(data).encode("ascii")
-    return b64encode(stream) + b"|"
+def gen_random():
+    # Generate a unique id
+    while True:
+        val = str(int(random() * 1000000000))
+        if val not in responseQ:
+            return val
 
 
 class ProtocolHandler(object):
@@ -63,10 +56,32 @@ class ProtocolHandler(object):
             json_obj = json.loads(json_data, encoding="ascii")
 
             # Decode the data element if available into a "utf8" encoded string
-            if "raw_string" in json_obj:
-                raw_data = b64decode(json_obj["raw_string"].encode("ascii"))
-                json_obj["raw_string"] = raw_data.decode("utf8")
+            if "text" in json_obj:
+                raw_data = b64decode(json_obj["text"].encode("ascii"))
+                json_obj["text"] = raw_data.decode("utf8")
 
             # Append to command to the list of commands
             json_obj["client"] = self._client
-            await commandQ.put(json_obj)
+
+            # Add response to Queue, response, request
+            requestid = json_obj.get("id")
+            queue = responseQ.get(requestid, requestQ)
+            await queue.put(json_obj)
+
+    @staticmethod
+    def stream_encode(data):
+        """
+        Convert a dictionary into a base64 encoded data, ready for network transfer.
+
+        :param dict data: Dictionary to convert
+        :return: Base64 encoded data
+        :rtype: bytes
+        """
+
+        # Convert raw_data to base64 if exists
+        if "text" in data:
+            data["text"] = b64encode(data["text"].encode("utf8")).decode("ascii")
+
+        # Convert dict into a serialized string ready for network transfer
+        stream = json.dumps(data).encode("ascii")
+        return b64encode(stream) + b"|"

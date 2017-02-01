@@ -4,11 +4,12 @@ import asyncio
 # Package imports
 from src import common
 from src import monitors
+from src import tts_client
 
 
 class AutoConnect(object):
     def __init__(self, loop, host, port):
-        self.client = Client(self)
+        self.client = Client(loop, self)
         self.connected = False
         self.con_fail = 0
         self.loop = loop
@@ -47,12 +48,13 @@ class AutoConnect(object):
 
 
 class Client(asyncio.Protocol):
-    def __init__(self, manager):
+    def __init__(self, loop, manager):
         self.transport = None
         self.manager = manager
 
         # Setup handler to process socket data
         self.handler = common.ProtocolHandler(self)
+        self.tts = tts_client.TTS(loop, self)
 
     def connection_made(self, transport):
         print("Connection made to server")
@@ -64,11 +66,25 @@ class Client(asyncio.Protocol):
         core = self.handler.stream_decode(data)
         asyncio.ensure_future(core)
 
+    def send_data(self, data):
+        stream = self.handler.stream_encode(data)
+        self.transport.write(stream)
+
     def connection_lost(self, exc):
         print("The server closed the connection")
         print("Attempting reconnect")
         self.manager.connected = False
         self.manager.reconnect()
+
+    async def initialize(self):
+        # Fetch list of available voices
+        requestid = common.gen_random()
+        data = {"command": "get_voices", "id": requestid}
+        self.send_data(data)
+
+        queue = common.responseQ[requestid]
+        ret = await queue.get()
+        del common.responseQ[requestid]
 
 
 def run():
