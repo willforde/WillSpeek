@@ -22,139 +22,74 @@ class TTS(object):
             self.client_con.send_data(request)
             queue.task_done()
 
-    async def _wait_response(self, future, request):
-        request["id"] = common.gen_random()
-        queue = common.responseQ[request["id"]]
-        self.client_con.send_data(request)
-        ret = await queue.get()
-        queue.task_done()
-        del common.responseQ[request["id"]]
-        future.set_result(ret["result"])
-
     def _future_response(self, request):
-        future = asyncio.Future()
-        asyncio.ensure_future(self._wait_response(future, request))
+        request["id"] = common.gen_random()
+        future = common.responseF[request["id"]]
+        self.client_con.send_data(request)
         self.loop.run_until_complete(future)
+        del common.responseF[request["id"]]
         return future.result()
 
     def get_rate(self):
-        request = dict(task="get_voices")
-        return self._future_response(request)
+        request = dict(task="get_rate")
+        ret = self._future_response(request)
+        return ret["rate"]
 
-
-
-
-
-
-
-
-
-    @property
-    def rate(self):
-        """ Return the current speech rate """
-        self._send_header("get_rate", "null")
-        command, value = self._recv_header()
-        if command == "property": return int(value)
-
-    @rate.setter
-    def rate(self, value):
+    def set_rate(self, rate):
         """
         Change the speach rate of the voice
 
-        value : integer --- Rate to set the voice to
+        :param rate: Rate to set the voice to
+        :type rate: integer
 
-        Value must be between -10 to +10
+        :raises ValueError: If value is out of range
+
+        .. note::
+            Rate must be between -10 and +10
         """
-        value = int(value)
-        if value < -10 or value > 10:
-            raise ValueError("invalid rate %s" % value)
-        else:
-            self._send_header("set_rate", value)
+        if rate < -10 or rate > 10:
+            raise ValueError("invalid rate %s" % rate)
 
-    @property
-    def volume(self):
-        """ Return the current volume level """
-        self._send_header("get_volume", "null")
-        command, value = self._recv_header()
-        if command == "property": return int(value)
+        request = dict(task="set_rate", rate=rate)
+        ret = self._future_response(request)
+        return ret["success"]
 
-    @volume.setter
-    def volume(self, value):
-        """
-        Chagne the volume of the voice
+    def get_volume(self):
+        request = dict(task="get_volume")
+        ret = self._future_response(request)
+        return ret["volume"]
 
-        value : int --- level of the volume to change to
-        """
-        if value < 0 or value > 100:
-            raise ValueError("invalid volume %s" % value)
-        else:
-            self._send_header("set_volume", value)
+    def set_volume(self, volume):
+        if volume < 0 or volume > 100:
+            raise ValueError("invalid volume %s" % volume)
 
-    def _get_voice_data(self):
-        command, value = self._recv_header()
-        if not command == "voicedata":
-            print
-            command, value
-            return {}
-        else:
-            length = int(value)
-
-        voicesData = []
-        count = 0
-        while count < length:
-            left = length - count
-            data = self.tcpsock.recv(CHUNK if left > CHUNK else left)
-            count += len(data)
-            voicesData.append(data)
-
-        # Recombine voices into dict
-        return [Voice(None, voiceID, name[0]) for voiceID, name in urlparse.parse_qs("".join(voicesData)).iteritems()]
-
-
-    @property
-    def voice(self):
-        """ Return the current selected voice as a Voice object """
-        self._send_header("get_voice", "null")
-        return self._get_voice_data()[0]
-
-    @voice.setter
-    def voice(self, voice):
-        """
-        Change voice to selected voice Token
-
-        value : Voice obj --- The voice of witch to change too
-        """
-        self._send_header("set_voice", len(voice.id))
-        self.tcpsock.send(voice.id)
+        request = dict(task="set_volume", volume=volume)
+        ret = self._future_response(request)
+        return ret["success"]
 
     def get_voices(self):
-        """ Return list of avalable voices as a Voice object """
-        self._send_header("get_voices", "null")
-        return self._get_voice_data()
+        request = dict(task="get_voices")
+        ret = self._future_response(request)
+        return [Voice(**voice) for voice in ret["voices"]]
 
+    def get_voice(self):
+        request = dict(task="get_voice")
+        ret = self._future_response(request)
+        return Voice(**ret)
 
-
-
-
-
-
-
-
-
-
-
-
+    def set_voice(self, voice):
+        request = dict(task="set_voice", voiceid=voice.id)
+        ret = self._future_response(request)
+        return ret["success"]
 
 
 class Voice(object):
     """ Voice data object """
 
-    def __init__(self, token, id, name, gender=None, languages=None):
-        self.__id = id
+    def __init__(self, voiceid, name, gender):
+        self.__id = voiceid
         self.__name = name
         self.__gender = gender
-        self.__languages = languages
-        self._token = token
 
     @property
     def id(self):
@@ -174,8 +109,3 @@ class Voice(object):
     def gender(self):
         """ Return the gender of the voice """
         return self.__gender
-
-    @property
-    def languages(self):
-        """ Return the languages of the voice """
-        return self.__languages

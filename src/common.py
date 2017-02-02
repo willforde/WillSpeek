@@ -4,18 +4,29 @@ from random import random
 import collections
 import asyncio
 import json
+import os
 
 # Create Queue for all command
 requestQ = asyncio.Queue()
-responseQ = collections.defaultdict(asyncio.Queue)
+responseF = collections.defaultdict(asyncio.Future)
+
+# Create path to config folder
+CWDPATH = os.path.dirname(os.path.realpath(__file__))
+CONFIGPATH = os.path.join(CWDPATH, "data")
 
 
 def gen_random():
     # Generate a unique id
     while True:
         val = str(int(random() * 1000000000))
-        if val not in responseQ:
+        if val not in responseF:
             return val
+
+
+def load_config(filename):
+    filepath = os.path.join(CONFIGPATH, filename)
+    with open(filepath, "rb") as opened_file:
+        return json.load(opened_file)
 
 
 class ProtocolHandler(object):
@@ -64,9 +75,12 @@ class ProtocolHandler(object):
             json_obj["client"] = self._client
 
             # Add response to Queue, response, request
-            requestid = json_obj.get("id")
-            queue = responseQ.get(requestid, requestQ)
-            await queue.put(json_obj)
+            requestid = json_obj.get("id", "0")
+            if requestid in responseF:
+                future = responseF[requestid]
+                future.set_result(json_obj["response"])
+            else:
+                await requestQ.put(json_obj)
 
     @staticmethod
     def stream_encode(data):

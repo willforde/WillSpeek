@@ -51,6 +51,7 @@ class Client(asyncio.Protocol):
     def __init__(self, loop, manager):
         self.transport = None
         self.manager = manager
+        self.loop = loop
 
         # Setup handler to process socket data
         self.handler = common.ProtocolHandler(self)
@@ -61,6 +62,7 @@ class Client(asyncio.Protocol):
         self.manager.connected = True
         self.manager.failed_con = 0
         self.transport = transport
+        self.loop.call_soon(self.initialize)
 
     def data_received(self, data):
         core = self.handler.stream_decode(data)
@@ -76,15 +78,20 @@ class Client(asyncio.Protocol):
         self.manager.connected = False
         self.manager.reconnect()
 
-    async def initialize(self):
-        # Fetch list of available voices
-        requestid = common.gen_random()
-        data = {"command": "get_voices", "id": requestid}
-        self.send_data(data)
+    def initialize(self):
+        # Fetch configuration
+        config = common.load_config("settings.json")
 
-        queue = common.responseQ[requestid]
-        ret = await queue.get()
-        del common.responseQ[requestid]
+        # Set required voice
+        for voice in self.tts.get_voices():
+            if voice.name == config["voice"]:
+                self.tts.set_voice(voice)
+
+        # Set voice rate
+        self.tts.set_rate(config["rate"])
+
+        # Set volume level
+        self.tts.set_volume(config["volume"])
 
 
 def run():
