@@ -52,6 +52,7 @@ class Client(asyncio.Protocol):
         self.transport = None
         self.manager = manager
         self.loop = loop
+        self.buffer = []
 
         # Setup handler to process socket data
         self.handler = common.ProtocolHandler(self)
@@ -64,19 +65,29 @@ class Client(asyncio.Protocol):
         self.transport = transport
         self.loop.call_soon(self.initialize)
 
+        # Transmit any delayed bufferd data
+        # while the connection was lost
+        while self.buffer:
+            data = self.buffer.pop(0)
+            self.send_data(data)
+
     def data_received(self, data):
         core = self.handler.stream_decode(data)
         asyncio.ensure_future(core)
 
     def send_data(self, data):
-        stream = self.handler.stream_encode(data)
-        self.transport.write(stream)
+        if self.transport:
+            stream = self.handler.stream_encode(data)
+            self.transport.write(stream)
+        else:
+            self.buffer.append(data)
 
     def connection_lost(self, exc):
         print("The server closed the connection")
         print("Attempting reconnect")
         self.manager.connected = False
         self.manager.reconnect()
+        self.transport = None
 
     def initialize(self):
         # Fetch configuration
