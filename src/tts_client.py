@@ -1,5 +1,4 @@
 # Standard library imports
-import collections
 import asyncio
 
 # Package imports

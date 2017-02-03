@@ -1,6 +1,5 @@
 # Standard Library Imports
 from io import StringIO
-import asyncio
 
 # Package Imports
 from src import common

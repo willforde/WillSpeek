@@ -125,4 +125,3 @@ class ProtocolHandler(object):
 
         # Return unmodified object
         return dct
-
