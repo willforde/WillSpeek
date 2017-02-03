@@ -12,7 +12,6 @@ from comtypes.client import CreateObject
 commandQ = common.requestQ
 
 
-
 class Dispatcher(object):
     def __init__(self):
         # Setup TTS Engine
@@ -103,7 +102,7 @@ class TTS(Dispatcher):
             voiceid = voice.Id
             name = voice.GetDescription()
             gender = voice.GetAttribute("Gender")
-            voices.append(dict(voiceid=voiceid, name=name, gender=gender))
+            voices.append(common.Voice(voiceid, name, gender))
 
         # Return a list of all available voices
         return dict(success=True, voices=voices)
@@ -111,47 +110,12 @@ class TTS(Dispatcher):
     def get_voice(self):
         """ Return the current selected voice as a Voice object """
         _voice = self._engine.Voice
-        voice = dict(voiceid=_voice.Id, name=_voice.GetDescription(), gender=_voice.GetAttribute("Gender"))
+        voice = common.Voice(_voice.Id, _voice.GetDescription(), _voice.GetAttribute("Gender"))
         return dict(success=True, voice=voice)
 
-    def set_voice(self, voiceid):
+    def set_voice(self, voiceobj):
         # Search all voices for given voiceid
-        for voice in self._engine.GetVoices():
-            if voice.Id == voiceid:
-                self._engine.Voice = voice
+        for _voice in self._engine.GetVoices():
+            if _voice.Id == voiceobj.voiceid:
+                self._engine.Voice = _voice
                 return dict(success=True)
-
-
-class Voice(object):
-    """ Voice data object """
-
-    def __init__(self, token, id, name, gender=None, languages=None):
-        self.__id = id
-        self.__name = name
-        self.__gender = gender
-        self.__languages = languages
-        self._token = token
-
-    @property
-    def id(self):
-        """ Return the id of the voice """
-        return self.__id
-
-    @property
-    def id_basic(self):
-        return self.__id.rsplit("\\", 1)[-1]
-
-    @property
-    def name(self):
-        """ Return the name of the voice """
-        return self.__name
-
-    @property
-    def gender(self):
-        """ Return the gender of the voice """
-        return self.__gender
-
-    @property
-    def languages(self):
-        """ Return the languages of the voice """
-        return self.__languages

@@ -14,6 +14,9 @@ responseF = collections.defaultdict(asyncio.Future)
 CWDPATH = os.path.dirname(os.path.realpath(__file__))
 CONFIGPATH = os.path.join(CWDPATH, "data")
 
+# Setup Voice object
+Voice = collections.namedtuple("Voice", ["voiceid", "name", "gender"])
+
 
 def gen_random():
     # Generate a unique id
@@ -64,7 +67,7 @@ class ProtocolHandler(object):
         for request in filter(None, requests):
             # Decode the request
             json_data = b64decode(request)
-            json_obj = json.loads(json_data, encoding="ascii")
+            json_obj = json.loads(json_data, encoding="utf8", object_hook=self.dict_to_voice)
 
             # Decode the data element if available into a "utf8" encoded string
             if "text" in json_obj:
@@ -97,5 +100,29 @@ class ProtocolHandler(object):
             data["text"] = b64encode(data["text"].encode("utf8")).decode("ascii")
 
         # Convert dict into a serialized string ready for network transfer
-        stream = json.dumps(data).encode("ascii")
+        stream = json.dumps(data, default=ProtocolHandler.voice_to_dict).encode("utf8")
         return b64encode(stream) + b"|"
+
+    @staticmethod
+    def voice_to_dict(obj):
+        # Check for a Voice object
+        if isinstance(obj, Voice):
+            # Convert voice object into a dict
+            data = {"__class__": "Voice"}
+            data.update(obj.__dict__)
+            return data
+
+        # Return unmodified object
+        return obj
+
+    @staticmethod
+    def dict_to_voice(dct):
+        # Convert any serialized voice object back into a voice object
+        if "__class__" in dct and dct["__class__"] == "Voice":
+            del dct["__class__"]
+            args = {key.encode("ascii"): value for key, value in dct.items()}
+            return Voice(**args)
+
+        # Return unmodified object
+        return dct
+

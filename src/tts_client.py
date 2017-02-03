@@ -1,4 +1,5 @@
 # Standard library imports
+import collections
 import asyncio
 
 # Package imports
@@ -26,9 +27,9 @@ class TTS(object):
         request["id"] = common.gen_random()
         future = common.responseF[request["id"]]
         self.client_con.send_data(request)
-        self.loop.run_until_complete(future)
+        result = self.loop.run_until_complete(future)
         del common.responseF[request["id"]]
-        return future.result()
+        return result
 
     def get_rate(self):
         request = dict(task="get_rate")
@@ -70,42 +71,13 @@ class TTS(object):
     def get_voices(self):
         request = dict(task="get_voices")
         ret = self._future_response(request)
-        return [Voice(**voice) for voice in ret["voices"]]
+        return ret["voices"]
 
     def get_voice(self):
         request = dict(task="get_voice")
-        ret = self._future_response(request)
-        return Voice(**ret)
+        return self._future_response(request)
 
     def set_voice(self, voice):
-        request = dict(task="set_voice", voiceid=voice.id)
+        request = dict(task="set_voice", voiceid=voice)
         ret = self._future_response(request)
         return ret["success"]
-
-
-class Voice(object):
-    """ Voice data object """
-
-    def __init__(self, voiceid, name, gender):
-        self.__id = voiceid
-        self.__name = name
-        self.__gender = gender
-
-    @property
-    def id(self):
-        """ Return the id of the voice """
-        return self.__id
-
-    @property
-    def id_basic(self):
-        return self.__id.rsplit("\\", 1)[-1]
-
-    @property
-    def name(self):
-        """ Return the name of the voice """
-        return self.__name
-
-    @property
-    def gender(self):
-        """ Return the gender of the voice """
-        return self.__gender
