@@ -4,6 +4,7 @@ import asyncio
 # Package imports
 from src import common
 from src import monitors
+from src import playback
 from src import tts_client
 
 
@@ -135,11 +136,11 @@ class ClientUDP:
         self.transport = transport
 
     def datagram_received(self, data, addr):
-        print("received audio: {}".format(data))
-        print(addr)
+        # Send audio frames to playback thread
+        playback.frames.put(data)
 
     def connection_lost(self, exc):
-        pass
+        print("UDP Connection Lost {}".format(exc))
 
 
 def run(host, port):
@@ -153,12 +154,17 @@ def run(host, port):
     clipboard_moniter = monitors.clipboard()
     clib_task = asyncio.ensure_future(clipboard_moniter)
 
+    # Setup audio playback
+    player, stream = playback.listen()
+
     # Make requests until Ctrl+C is pressed
     try:
         loop.run_forever()
     except KeyboardInterrupt:
         pass
     finally:
+        stream.close()
+        player.terminate()
         clib_task.cancel()
         loop.run_until_complete(loop.shutdown_asyncgens())
         loop.stop()
