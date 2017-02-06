@@ -9,7 +9,7 @@ from src import tts_client
 
 class AutoConnect(object):
     def __init__(self, loop, host, port):
-        self.client = Client(loop, self)
+        self.client = ClientTCP(loop, self)
         self.connected = False
         self.con_fail = 0
         self.loop = loop
@@ -28,9 +28,13 @@ class AutoConnect(object):
         exc = context.get("exception")
 
         # Only reconnect if exception is an OSError of Errno 111
-        if self.connected is False and self.con_fail <= 3 and isinstance(exc, OSError) and "Errno 111" in exc.args[0]:
-            print("Unable to connect")
-            self.reconnect()
+        if self.connected is False and isinstance(exc, OSError) and "Errno 111" in exc.args[0]:
+            if self.con_fail <= 3:
+                print("Unable to connect")
+                self.reconnect()
+            else:
+                print("Aborting reconnection")
+                self.loop.stop()
         else:
             self.loop.stop()
             raise exc
@@ -47,29 +51,27 @@ class AutoConnect(object):
         return self.client
 
 
-class Client(asyncio.Protocol):
+class ClientTCP(asyncio.Protocol):
     def __init__(self, loop, manager):
+        self.udp_addr = None
         self.transport = None
         self.manager = manager
         self.loop = loop
         self.buffer = []
+        self.tts = None
 
         # Setup handler to process socket data
         self.handler = common.ProtocolHandler(self)
-        self.tts = tts_client.TTS(loop, self)
 
     def connection_made(self, transport):
         print("Connection made to server")
         self.manager.connected = True
         self.manager.failed_con = 0
         self.transport = transport
-        self.loop.call_soon(self.initialize)
 
-        # Transmit any delayed bufferd data
-        # while the connection was lost
-        while self.buffer:
-            data = self.buffer.pop(0)
-            self.send_data(data)
+        # Initialize Speach engine with saved settings
+        init_core = self.initialize()
+        asyncio.ensure_future(init_core)
 
     def data_received(self, data):
         core = self.handler.stream_decode(data)
@@ -89,28 +91,63 @@ class Client(asyncio.Protocol):
         self.manager.reconnect()
         self.transport = None
 
-    def initialize(self):
+        # Cancel all Futures if connection is lost
+        for future in common.responseF.values():
+            future.cancel()
+
+    async def initialize(self):
+        # Create a UDP client if not already created
+        if self.tts is None:
+            connect = self.loop.create_datagram_endpoint(ClientUDP, remote_addr=(self.manager.host, self.manager.port))
+            transport, _ = await asyncio.ensure_future(connect)
+            udp_addr = transport.get_extra_info("peername")
+
+            # Setup TTS
+            self.tts = tts_client.TTS(self.loop, self.send_data, udp_addr)
+
         # Fetch configuration
         config = common.load_config("settings.json")
 
         # Set required voice
-        for voice in self.tts.get_voices():
+        voices = await self.tts.get_voices()
+        for voice in voices:
             if voice.name == config["voice"]:
-                self.tts.set_voice(voice)
+                await self.tts.set_voice(voice)
 
         # Set voice rate
-        self.tts.set_rate(config["rate"])
+        await self.tts.set_rate(config["rate"])
 
         # Set volume level
-        self.tts.set_volume(config["volume"])
+        await self.tts.set_volume(config["volume"])
+
+        # Transmit any delayed buffered data
+        # while the connection was lost
+        while self.buffer:
+            data = self.buffer.pop(0)
+            self.send_data(data)
 
 
-def run():
+class ClientUDP:
+    def __init__(self):
+        self.transport = None
+
+    def connection_made(self, transport):
+        self.transport = transport
+
+    def datagram_received(self, data, addr):
+        print("received audio: {}".format(data))
+        print(addr)
+
+    def connection_lost(self, exc):
+        pass
+
+
+def run(host, port):
     # Fetch Event Loop
     loop = asyncio.get_event_loop()
 
     # Setup Automatic connection manager
-    AutoConnect(loop, "localhost", 8888)
+    AutoConnect(loop, host, port)
 
     # Setup clipboard monitor
     clipboard_moniter = monitors.clipboard()

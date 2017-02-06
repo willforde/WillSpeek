@@ -25,6 +25,7 @@ async def clipboard():
         elif clipboard_text and not clipboard_text == prev_text:
             prev_text = clipboard_text
             await speakQ.put(clipboard_text)
+            print("sending: {}".format(clipboard_text))
 
         # Sleep for 50ms in order to loop 20 times a second
         await asyncio.sleep(.05)

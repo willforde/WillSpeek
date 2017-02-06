@@ -11,11 +11,8 @@ requestQ = asyncio.Queue()
 responseF = collections.defaultdict(asyncio.Future)
 
 # Create path to config folder
-CWDPATH = os.path.dirname(os.path.realpath(__file__))
+CWDPATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 CONFIGPATH = os.path.join(CWDPATH, "data")
-
-# Setup Voice object
-Voice = collections.namedtuple("Voice", ["voiceid", "name", "gender"])
 
 
 def gen_random():
@@ -70,12 +67,12 @@ class ProtocolHandler(object):
             json_obj = json.loads(json_data, encoding="utf8", object_hook=self.dict_to_voice)
 
             # Decode the data element if available into a "utf8" encoded string
-            if "text" in json_obj:
-                raw_data = b64decode(json_obj["text"].encode("ascii"))
-                json_obj["text"] = raw_data.decode("utf8")
+            if "params" in json_obj and "text" in json_obj["params"]:
+                raw_data = b64decode(json_obj["params"]["text"].encode("ascii"))
+                json_obj["params"]["text"] = raw_data.decode("utf8")
 
             # Append to command to the list of commands
-            json_obj["client"] = self._client
+            json_obj["_client"] = self._client
 
             # Add response to Queue, response, request
             requestid = json_obj.get("id", "0")
@@ -95,9 +92,13 @@ class ProtocolHandler(object):
         :rtype: bytes
         """
 
+        # Remove client stream object if exists
+        if "_client" in data:
+            del data["_client"]
+
         # Convert raw_data to base64 if exists
-        if "text" in data:
-            data["text"] = b64encode(data["text"].encode("utf8")).decode("ascii")
+        if "params" in data and "text" in data["params"]:
+            data["params"]["text"] = b64encode(data["params"]["text"].encode("utf8")).decode("ascii")
 
         # Convert dict into a serialized string ready for network transfer
         stream = json.dumps(data, default=ProtocolHandler.voice_to_dict).encode("utf8")
@@ -120,8 +121,15 @@ class ProtocolHandler(object):
         # Convert any serialized voice object back into a voice object
         if "__class__" in dct and dct["__class__"] == "Voice":
             del dct["__class__"]
-            args = {key.encode("ascii"): value for key, value in dct.items()}
-            return Voice(**args)
+            return Voice(**dct)
 
         # Return unmodified object
         return dct
+
+
+# Setup Voice object
+class Voice(object):
+    def __init__(self, voiceid, name, gender):
+        self.voiceid = voiceid
+        self.gender = gender
+        self.name = name
