@@ -57,7 +57,7 @@ class ServerUDP:
             self.send_audio(data)
 
     def datagram_received(self, data, addr):
-        print("received udp: {}".format(data))
+        pass
 
     def send_audio(self, audio_fragment):
         if self.transport:

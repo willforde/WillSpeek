@@ -135,9 +135,21 @@ class ClientUDP:
     def connection_made(self, transport):
         self.transport = transport
 
+        # Setup keep alive requests
+        core = self.keep_alive()
+        asyncio.ensure_future(core)
+
+    async def keep_alive(self):
+        # Send an empty string to UDP server every minute
+        # to keep firewall mapping alive if needed
+        while True:
+            self.transport.sendto(b"")
+            await asyncio.sleep(60)
+
     def datagram_received(self, data, addr):
         # Send audio frames to playback thread
-        playback.frames.put(data)
+        # playback.frames.put(data)
+        pass
 
     def connection_lost(self, exc):
         print("UDP Connection Lost {}".format(exc))
