@@ -38,6 +38,14 @@ class TTS(object):
 
         return result
 
+    async def speak(self, text):
+        request = dict(task="speak", params={"text": text})
+        ret = await self._future_response(request)
+        if ret["success"]:
+            return ret["audio"]
+        else:
+            return False
+
     async def get_rate(self):
         request = dict(task="get_rate")
         ret = await self._future_response(request)

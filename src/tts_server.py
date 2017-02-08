@@ -64,11 +64,13 @@ class Dispatcher(object):
 
 
 class TTS(Dispatcher):
-    def speak(self, text, addr, stream=True):
+    def speak(self, text, addr=None):
         """ Send text to tts engine and speak """
         print("Speak: {}".format(text))
-        if stream is True:
+        if addr is not None:
             self.udpserver.sendto(b"audio", tuple(addr))
+        else:
+            return dict(success=True, audio="audio")
         #self._engine.Speak(text)
         #return StringIO(bytearray(self._stream.GetData()))
 
