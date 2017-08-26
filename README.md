@@ -3,7 +3,7 @@
 # WillSpeek
 Python Text to Speach using Sapi5 with server / client model
 
-Very much a work in progress. I have started work on this project again. Hope to finish it this time.
+Very much a work in progress. Eventually I will finish this project, once I get back to it.
 
 # Info
 I created this project as a way to have good TTS on linux, because TTS on linux at the moment is dreadful. For a long time I wanted to switch to linux but I needed a good linux TTS software but could not find one.
